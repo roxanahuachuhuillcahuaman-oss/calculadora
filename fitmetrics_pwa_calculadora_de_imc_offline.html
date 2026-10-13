@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitMetrics PWA - Calculadora de IMC Offline</title>
+
+    <!-- PWA & Mobile Meta Tags -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="description" content="Calculadora de IMC Profesional 100% Offline, con historial, gráficos y recomendaciones.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FitMetrics">
+
+    <script>
+        (function() {
+            const manifestObj = {
+                name: "FitMetrics - Calculadora de IMC",
+                short_name: "FitMetrics",
+                start_url: "./",
+                display: "standalone",
+                background_color: "#f8fafc",
+                theme_color: "#4f46e5",
+                icons: [
+                    {
+                        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='m9 12 2 2 4-4'/></svg>",
+                        sizes: "512x512",
+                        type: "image/svg+xml",
+                        purpose: "any maskable"
+                    }
+                ]
+            };
+            const manifestStr = JSON.stringify(manifestObj);
+            const blob = new Blob([manifestStr], { type: 'application/json' });
+            const manifestUrl = URL.createObjectURL(blob);
+            const link = document.createElement('link');
+            link.rel = 'manifest';
+            link.href = manifestUrl;
+            document.head.appendChild(link);
+        })();
+    </script>
+
+    <style>
+        /* CSS Variables for Light / Dark Mode */
+        :root {
+            --bg-body: #f8fafc;
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --bg-card-sub: #f1f5f9;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --input-bg: #f8fafc;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark {
+            --bg-body: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.95);
+            --bg-card-sub: #334155;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --input-bg: #1e293b;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --shadow: 0 4px 25px -2px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 3rem;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Container Layout */
+        .app-header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+            backdrop-filter: blur(8px);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: var(--primary);
+        }
+
+        .brand-icon {
+            width: 38px;
+            height: 38px;
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+        }
+
+        .main-grid {
+            max-width: 1200px;
+            margin: 1.5rem auto;
+            padding: 0 1.5rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 5fr 7fr;
+            }
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Interactive Controls */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-card-sub);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            background-color: var(--bg-card-sub);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Form Inputs */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .input-counter {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .num-input {
+            width: 100%;
+            text-align: center;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.65rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            font-size: 1.125rem;
+            outline: none;
+        }
+
+        .num-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+
+        .step-btn {
+            width: 42px;
+            height: 42px;
+            flex-shrink: 0;
+            border-radius: 0.75rem;
+            background-color: var(--bg-card-sub);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            font-weight: bold;
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .step-btn:active {
+            transform: scale(0.95);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-top: 0.5rem;
+            accent-color: var(--primary);
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        /* Segmented Buttons */
+        .segmented-control {
+            display: flex;
+            background-color: var(--bg-card-sub);
+            padding: 0.25rem;
+            border-radius: 0.75rem;
+            gap: 0.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .segmented-btn {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .segmented-btn.active {
+            background-color: var(--bg-card);
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        /* Gauge Gauge Meter */
+        .gauge-container {
+            position: relative;
+            margin: 1.5rem 0;
+        }
+
+        .gauge-bar {
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .gauge-segment {
+            height: 100%;
+        }
+
+        .gauge-pointer {
+            position: absolute;
+            top: -4px;
+            width: 12px;
+            height: 26px;
+            background-color: var(--text-main);
+            border: 2px solid #ffffff;
+            border-radius: 6px;
+            transform: translateX(-50%);
+            transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        /* History Table */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.875rem;
+        }
+
+        th {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Toast Popup */
+        #toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 0.875rem 1.25rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transform: translateY(150%);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 100;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        #toast.show {
+            transform: translateY(0);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        /* Canvas Responsive Container */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            margin-top: 1rem;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-content">
+            <div class="brand-logo">
+                <div class="brand-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <span>FitMetrics <span style="font-size: 0.65rem; background: var(--primary); color: white; padding: 2px 6px; border-radius: 6px; vertical-align: super;">OFFLINE</span></span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <!-- Botón Instalar App PWA -->
+                <button id="pwa-install-btn" class="btn btn-secondary" style="display: none; padding: 0.5rem 0.85rem; font-size: 0.8rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Instalar App</span>
+                </button>
+
+                <!-- Botón Modo Oscuro -->
+                <button id="theme-toggle" class="btn-icon" aria-label="Cambiar tema">
+                    <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-grid">
+
+        <!-- PANEL IZQUIERDO: FORMULARIO Y CONTROLES -->
+        <section style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                    <h2 style="font-size: 1.1rem; font-weight: 800;">Tus Datos</h2>
+                    
+                    <!-- Selector de Unidades -->
+                    <div class="segmented-control">
+                        <button id="unit-metric" class="segmented-btn active" onclick="setUnitSystem('metric')">Métrico</button>
+                        <button id="unit-imperial" class="segmented-btn" onclick="setUnitSystem('imperial')">Imperial</button>
+                    </div>
+                </div>
+
+                <!-- Género -->
+                <div class="form-group">
+                    <label class="form-label">Género</label>
+                    <div class="segmented-control" style="padding: 0.35rem;">
+                        <button id="gender-male" class="segmented-btn active" onclick="setGender('male')">♂ Masculino</button>
+                        <button id="gender-female" class="segmented-btn" onclick="setGender('female')">♀ Femenino</button>
+                    </div>
+                </div>
+
+                <!-- Edad -->
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Edad</span>
+                        <span id="age-val-display" style="color: var(--primary);">28 años</span>
+                    </div>
+                    <div class="input-counter">
+                        <button class="step-btn" onclick="adjustValue('age', -1)">-</button>
+                        <input type="number" id="age" value="28" min="2" max="120" class="num-input" oninput="updateCalculations()">
+                        <button class="step-btn" onclick="adjustValue('age', 1)">+</button>
+                    </div>
+                </div>
+
+                <!-- Estatura (Métrico cm) -->
+                <div id="height-metric-box" class="form-group">
+                    <div class="form-label">
+                        <span>Estatura</span>
+                        <span style="color: var(--primary); font-weight: 800;"><span id="cm-display">175</span> cm</span>
+                    </div>
+                    <div class="input-counter">
+                        <button class="step-btn" onclick="adjustValue('height-cm', -1)">-</button>
+                        <input type="number" id="height-cm" value="175" min="100" max="230" class="num-input" oninput="syncSlider('height-cm', 'slider-height-cm')">
+                        <button class="step-btn" onclick="adjustValue('height-cm', 1)">+</button>
+                    </div>
+                    <input type="range" id="slider-height-cm" min="100" max="230" value="175" oninput="syncInput('height-cm', 'slider-height-cm')">
+                </div>
+
+                <!-- Estatura (Imperial ft/in) -->
+                <div id="height-imperial-box" class="form-group" style="display: none;">
+                    <label class="form-label">Estatura</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                        <div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Pies (ft)</span>
+                            <input type="number" id="height-ft" value="5" min="3" max="8" class="num-input" oninput="updateCalculations()">
+                        </div>
+                        <div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Pulgadas (in)</span>
+                            <input type="number" id="height-in" value="9" min="0" max="11" class="num-input" oninput="updateCalculations()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Peso (Métrico kg) -->
+                <div id="weight-metric-box" class="form-group">
+                    <div class="form-label">
+                        <span>Peso</span>
+                        <span style="color: var(--primary); font-weight: 800;"><span id="kg-display">70</span> kg</span>
+                    </div>
+                    <div class="input-counter">
+                        <button class="step-btn" onclick="adjustValue('weight-kg', -0.5)">-</button>
+                        <input type="number" id="weight-kg" value="70" step="0.1" min="30" max="250" class="num-input" oninput="syncSlider('weight-kg', 'slider-weight-kg')">
+                        <button class="step-btn" onclick="adjustValue('weight-kg', 0.5)">+</button>
+                    </div>
+                    <input type="range" id="slider-weight-kg" min="30" max="200" step="0.5" value="70" oninput="syncInput('weight-kg', 'slider-weight-kg')">
+                </div>
+
+                <!-- Peso (Imperial lbs) -->
+                <div id="weight-imperial-box" class="form-group" style="display: none;">
+                    <div class="form-label">
+                        <span>Peso</span>
+                        <span style="color: var(--primary); font-weight: 800;"><span id="lbs-display">154</span> lbs</span>
+                    </div>
+                    <div class="input-counter">
+                        <button class="step-btn" onclick="adjustValue('weight-lbs', -1)">-</button>
+                        <input type="number" id="weight-lbs" value="154" step="1" min="60" max="500" class="num-input" oninput="syncSlider('weight-lbs', 'slider-weight-lbs')">
+                        <button class="step-btn" onclick="adjustValue('weight-lbs', 1)">+</button>
+                    </div>
+                    <input type="range" id="slider-weight-lbs" min="60" max="400" step="1" value="154" oninput="syncInput('weight-lbs', 'slider-weight-lbs')">
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" onclick="saveRecord()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    <span>Guardar Registro</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- PANEL DERECHO: RESULTADOS, GRAFICO Y RECOMENDACIONES -->
+        <section style="display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <!-- Result Card -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Índice de Masa Corporal</span>
+                        <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-top: 0.25rem;">
+                            <span id="bmi-val" style="font-size: 3.25rem; font-weight: 900; tracking-tight: -0.05em;">22.9</span>
+                            <span id="bmi-badge" class="badge" style="background: #10b98120; color: #10b981; font-size: 0.875rem;">Peso Normal</span>
+                        </div>
+                    </div>
+                    <div id="status-avatar" style="width: 52px; height: 52px; border-radius: 16px; background: #10b98120; color: #10b981; display: flex; align-items: center; justify-content: center;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    </div>
+                </div>
+
+                <!-- Calibrador / Aguja Visual OMS -->
+                <div class="gauge-container">
+                    <div class="gauge-bar">
+                        <div style="width: 14%; background: #3b82f6;" title="Bajo Peso (<18.5)"></div>
+                        <div style="width: 26%; background: #10b981;" title="Normal (18.5-24.9)"></div>
+                        <div style="width: 20%; background: #f59e0b;" title="Sobrepeso (25-29.9)"></div>
+                        <div style="width: 13.3%; background: #ef4444;" title="Obesidad I (30-34.9)"></div>
+                        <div style="width: 13.3%; background: #dc2626;" title="Obesidad II (35-39.9)"></div>
+                        <div style="width: 13.4%; background: #991b1b;" title="Obesidad III (>=40)"></div>
+                    </div>
+                    <div id="gauge-pointer" class="gauge-pointer" style="left: 31%;"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); text-align: center; font-size: 0.65rem; font-weight: 700; color: var(--text-muted);">
+                    <span>&lt;18.5</span>
+                    <span>18.5</span>
+                    <span>25.0</span>
+                    <span>30.0</span>
+                    <span>35.0</span>
+                    <span>40+</span>
+                </div>
+
+                <!-- Resumen Nutricional/Meta -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Peso Saludable Ideal</span>
+                        <p id="ideal-range" style="font-weight: 800; font-size: 1rem; margin-top: 0.15rem;">56.7 - 76.3 kg</p>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Diferencia de Meta</span>
+                        <p id="ideal-diff" style="font-weight: 800; font-size: 1rem; margin-top: 0.15rem;">En tu peso ideal</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico Canvas Nativo -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-size: 1rem; font-weight: 800;">Evolución de IMC</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Histórico Canvas</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="bmiChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recomendaciones Personalizadas -->
+            <div class="card">
+                <h3 style="font-size: 1rem; font-weight: 800; margin-bottom: 1rem;">Recomendaciones Personalizadas</h3>
+                <div id="recommendations-box" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <!-- Se llena dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Tabla de Historial -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h3 style="font-size: 1rem; font-weight: 800;">Historial de Mediciones</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.65rem; font-size: 0.75rem;" onclick="exportJSON()">Exportar</button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.65rem; font-size: 0.75rem;" onclick="document.getElementById('file-input').click()">Importar</button>
+                        <input type="file" id="file-input" style="display: none;" accept=".json" onchange="importJSON(event)">
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Peso</th>
+                                <th>IMC</th>
+                                <th>Categoría</th>
+                                <th style="text-align: right;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Notificación Toast -->
+    <div id="toast">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span id="toast-msg">Acción completada</span>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `
+                    const CACHE_NAME = 'fitmetrics-v1';
+                    self.addEventListener('install', (e) => {
+                        self.skipWaiting();
+                    });
+                    self.addEventListener('activate', (e) => {
+                        e.waitUntil(clients.claim());
+                    });
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(
+                            caches.match(e.request).then((res) => {
+                                return res || fetch(e.request).catch(() => caches.match('./'));
+                            })
+                        );
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW setup note:', err));
+            });
+        }
+
+        let deferredPrompt;
+        const pwaBtn = document.getElementById('pwa-install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            pwaBtn.style.display = 'inline-flex';
+        });
+
+        pwaBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    pwaBtn.style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+
+        const themeBtn = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('theme-icon-sun');
+        const moonIcon = document.getElementById('theme-icon-moon');
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('fitmetrics_theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            }
+        }
+
+        themeBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('fitmetrics_theme', isDark ? 'dark' : 'light');
+            sunIcon.style.display = isDark ? 'none' : 'block';
+            moonIcon.style.display = isDark ? 'block' : 'none';
+            renderChart(); // Rediseñar gráfico con colores actualizados
+        });
+
+        let unitSystem = 'metric';
+        let gender = 'male';
+        let historyRecords = [];
+
+        function loadHistory() {
+            const data = localStorage.getItem('fitmetrics_history');
+            if (data) {
+                try {
+                    historyRecords = JSON.parse(data);
+                } catch(e) { historyRecords = []; }
+            }
+        }
+
+        function saveHistoryToStorage() {
+            localStorage.setItem('fitmetrics_history', JSON.stringify(historyRecords));
+        }
+
+        function setUnitSystem(sys) {
+            unitSystem = sys;
+            document.getElementById('unit-metric').className = `segmented-btn ${sys==='metric'?'active':''}`;
+            document.getElementById('unit-imperial').className = `segmented-btn ${sys==='imperial'?'active':''}`;
+
+            document.getElementById('height-metric-box').style.display = sys === 'metric' ? 'block' : 'none';
+            document.getElementById('height-imperial-box').style.display = sys === 'imperial' ? 'block' : 'none';
+            document.getElementById('weight-metric-box').style.display = sys === 'metric' ? 'block' : 'none';
+            document.getElementById('weight-imperial-box').style.display = sys === 'imperial' ? 'block' : 'none';
+
+            updateCalculations();
+        }
+
+        function setGender(g) {
+            gender = g;
+            document.getElementById('gender-male').className = `segmented-btn ${g==='male'?'active':''}`;
+            document.getElementById('gender-female').className = `segmented-btn ${g==='female'?'active':''}`;
+            updateCalculations();
+        }
+
+        function syncSlider(inputId, sliderId) {
+            const val = document.getElementById(inputId).value;
+            document.getElementById(sliderId).value = val;
+            updateCalculations();
+        }
+
+        function syncInput(inputId, sliderId) {
+            const val = document.getElementById(sliderId).value;
+            document.getElementById(inputId).value = val;
+            updateCalculations();
+        }
+
+        function adjustValue(inputId, step) {
+            const el = document.getElementById(inputId);
+            let val = parseFloat(el.value) || 0;
+            val = Math.max(parseFloat(el.min || 0), Math.min(parseFloat(el.max || 999), val + step));
+            el.value = Number.isInteger(step) ? val : val.toFixed(1);
+            
+            const slider = document.getElementById('slider-' + inputId);
+            if (slider) slider.value = el.value;
+
+            updateCalculations();
+        }
+
+        function updateCalculations() {
+            let heightM = 1.75;
+            let weightKg = 70;
+
+            if (unitSystem === 'metric') {
+                const cm = parseFloat(document.getElementById('height-cm').value) || 175;
+                weightKg = parseFloat(document.getElementById('weight-kg').value) || 70;
+                heightM = cm / 100;
+                document.getElementById('cm-display').innerText = cm;
+                document.getElementById('kg-display').innerText = weightKg;
+            } else {
+                const ft = parseFloat(document.getElementById('height-ft').value) || 5;
+                const inch = parseFloat(document.getElementById('height-in').value) || 9;
+                const lbs = parseFloat(document.getElementById('weight-lbs').value) || 154;
+                heightM = ((ft * 12) + inch) * 0.0254;
+                weightKg = lbs * 0.453592;
+                document.getElementById('lbs-display').innerText = lbs;
+            }
+
+            document.getElementById('age-val-display').innerText = `${document.getElementById('age').value} años`;
+
+            if (heightM <= 0 || weightKg <= 0) return;
+
+            const bmi = weightKg / (heightM * heightM);
+            const bmiFixed = bmi.toFixed(1);
+
+            // Categoría OMS
+            let category = '';
+            let color = '#10b981';
+            let pointerPct = 30;
+
+            if (bmi < 18.5) {
+                category = 'Bajo Peso';
+                color = '#3b82f6';
+                pointerPct = Math.max(2, (bmi / 18.5) * 14);
+            } else if (bmi < 25) {
+                category = 'Peso Normal';
+                color = '#10b981';
+                pointerPct = 14 + (((bmi - 18.5) / 6.5) * 26);
+            } else if (bmi < 30) {
+                category = 'Sobrepeso';
+                color = '#f59e0b';
+                pointerPct = 40 + (((bmi - 25) / 5) * 20);
+            } else if (bmi < 35) {
+                category = 'Obesidad I';
+                color = '#ef4444';
+                pointerPct = 60 + (((bmi - 30) / 5) * 13.3);
+            } else if (bmi < 40) {
+                category = 'Obesidad II';
+                color = '#dc2626';
+                pointerPct = 73.3 + (((bmi - 35) / 5) * 13.3);
+            } else {
+                category = 'Obesidad III';
+                color = '#991b1b';
+                pointerPct = Math.min(98, 86.6 + (((bmi - 40) / 10) * 13.4));
+            }
+
+            // Render Results UI
+            document.getElementById('bmi-val').innerText = bmiFixed;
+            const badge = document.getElementById('bmi-badge');
+            badge.innerText = category;
+            badge.style.background = `${color}20`;
+            badge.style.color = color;
+
+            const avatar = document.getElementById('status-avatar');
+            avatar.style.background = `${color}20`;
+            avatar.style.color = color;
+
+            document.getElementById('gauge-pointer').style.left = `${pointerPct}%`;
+
+            // Ideal Range (BMI 18.5 - 24.9)
+            const minIdealKg = 18.5 * (heightM * heightM);
+            const maxIdealKg = 24.9 * (heightM * heightM);
+
+            if (unitSystem === 'metric') {
+                document.getElementById('ideal-range').innerText = `${minIdealKg.toFixed(1)} - ${maxIdealKg.toFixed(1)} kg`;
+                if (weightKg < minIdealKg) {
+                    document.getElementById('ideal-diff').innerText = `+${(minIdealKg - weightKg).toFixed(1)} kg para ideal`;
+                } else if (weightKg > maxIdealKg) {
+                    document.getElementById('ideal-diff').innerText = `-${(weightKg - maxIdealKg).toFixed(1)} kg para ideal`;
+                } else {
+                    document.getElementById('ideal-diff').innerText = `¡En rango saludable!`;
+                }
+            } else {
+                const minLbs = minIdealKg * 2.20462;
+                const maxLbs = maxIdealKg * 2.20462;
+                const curLbs = weightKg * 2.20462;
+                document.getElementById('ideal-range').innerText = `${minLbs.toFixed(0)} - ${maxLbs.toFixed(0)} lbs`;
+                if (curLbs < minLbs) {
+                    document.getElementById('ideal-diff').innerText = `+${(minLbs - curLbs).toFixed(0)} lbs para ideal`;
+                } else if (curLbs > maxLbs) {
+                    document.getElementById('ideal-diff').innerText = `-${(curLbs - maxLbs).toFixed(0)} lbs para ideal`;
+                } else {
+                    document.getElementById('ideal-diff').innerText = `¡En rango saludable!`;
+                }
+            }
+
+            renderRecommendations(category);
+        }
+
+        function renderRecommendations(cat) {
+            const box = document.getElementById('recommendations-box');
+            let recs = [];
+
+            if (cat === 'Bajo Peso') {
+                recs = [
+                    'Nutrición: Incrementa el consumo de frutos secos, palta/aguacate y aceites saludables.',
+                    'Ejercicio: Prioriza el entrenamiento de fuerza con pesas para ganar masa muscular.',
+                    'Estilo de vida: Evita saltarte comidas y mantén 5 a 6 ingestas diarias.'
+                ];
+            } else if (cat === 'Peso Normal') {
+                recs = [
+                    'Nutrición: Mantén una dieta variada rica en vegetales, proteínas magras y fibra.',
+                    'Ejercicio: Combina 150 min semanales de cardio con 2 días de fuerza.',
+                    'Estilo de vida: Cuida la calidad de tu sueño (7-8 horas) y gestiona el estrés.'
+                ];
+            } else if (cat === 'Sobrepeso') {
+                recs = [
+                    'Nutrición: Reduce ultraprocesados y bebidas azucaradas, aumentando vegetales.',
+                    'Ejercicio: Incrementa tu actividad diaria no deportiva (caminar más de 8,000 pasos).',
+                    'Estilo de vida: Bebe al menos 2.5 litros de agua al día antes de cada comida.'
+                ];
+            } else {
+                recs = [
+                    'Nutrición: Planifica comidas en porciones estructuradas y consulta a un profesional.',
+                    'Ejercicio: Comienza con ejercicios de bajo impacto articular como natación o caminata.',
+                    'Estilo de vida: Establece metas progresivas sostenibles (0.5 kg a la semana).'
+                ];
+            }
+
+            box.innerHTML = recs.map(r => `
+                <div style="background: var(--bg-card-sub); padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.8125rem; font-weight: 500; border-left: 3px solid var(--primary);">
+                    ${r}
+                </div>
+            `).join('');
+        }
+
+        function saveRecord() {
+            const bmi = document.getElementById('bmi-val').innerText;
+            const category = document.getElementById('bmi-badge').innerText;
+            const now = new Date();
+            const dateStr = `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            let weightText = unitSystem === 'metric' 
+                ? `${document.getElementById('weight-kg').value} kg` 
+                : `${document.getElementById('weight-lbs').value} lbs`;
+
+            const record = {
+                id: Date.now(),
+                date: dateStr,
+                weight: weightText,
+                bmi: parseFloat(bmi),
+                category: category
+            };
+
+            historyRecords.unshift(record);
+            saveHistoryToStorage();
+            renderHistoryTable();
+            renderChart();
+            showToast('Medición guardada con éxito');
+        }
+
+        function deleteRecord(id) {
+            historyRecords = historyRecords.filter(r => r.id !== id);
+            saveHistoryToStorage();
+            renderHistoryTable();
+            renderChart();
+            showToast('Registro eliminado');
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-tbody');
+            if (historyRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Sin registros guardados</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = historyRecords.map(r => `
+                <tr>
+                    <td style="color: var(--text-muted); font-size: 0.75rem;">${r.date}</td>
+                    <td style="font-weight: 700;">${r.weight}</td>
+                    <td style="font-weight: 800; color: var(--primary);">${r.bmi}</td>
+                    <td><span class="badge" style="background: var(--bg-card-sub); color: var(--text-main);">${r.category}</span></td>
+                    <td style="text-align: right;">
+                        <button class="btn-secondary" style="padding: 0.25rem 0.5rem; border-radius: 0.5rem;" onclick="deleteRecord(${r.id})">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(historyRecords));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `FitMetrics_Historial_${Date.now()}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast('Historial exportado en JSON');
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        historyRecords = imported;
+                        saveHistoryToStorage();
+                        renderHistoryTable();
+                        renderChart();
+                        showToast('Historial importado correctamente');
+                    }
+                } catch(err) {
+                    showToast('Error al leer el archivo JSON');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderChart() {
+            const canvas = document.getElementById('bmiChart');
+            const ctx = canvas.getContext('2d');
+
+            // Ajuste de DPI de pantalla para Nitidez
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (historyRecords.length < 2) {
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted');
+                ctx.font = '12px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('Guarda al menos 2 registros para ver el gráfico de tendencia', width / 2, height / 2);
+                return;
+            }
+
+            const dataPoints = [...historyRecords].reverse();
+            const padding = 35;
+            const chartWidth = width - (padding * 2);
+            const chartHeight = height - (padding * 2);
+
+            const bmis = dataPoints.map(d => d.bmi);
+            const minBmi = Math.min(...bmis) - 2;
+            const maxBmi = Math.max(...bmis) + 2;
+
+            // Dibujar Líneas Guía de Fondo
+            ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border-color');
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i <= 3; i++) {
+                const y = padding + (chartHeight / 3) * i;
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+            }
+            ctx.stroke();
+
+            // Dibujar Línea del Gráfico
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            const points = dataPoints.map((dp, index) => {
+                const x = padding + (chartWidth / (dataPoints.length - 1)) * index;
+                const y = height - padding - ((dp.bmi - minBmi) / (maxBmi - minBmi)) * chartHeight;
+                return { x, y, bmi: dp.bmi, date: dp.date };
+            });
+
+            points.forEach((pt, idx) => {
+                if (idx === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.stroke();
+
+            // Dibujar Puntos
+            points.forEach(pt => {
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#4f46e5';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Valor del punto
+                ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-main');
+                ctx.font = 'bold 10px system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText(pt.bmi, pt.x, pt.y - 10);
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        window.addEventListener('load', () => {
+            initTheme();
+            loadHistory();
+            updateCalculations();
+            renderHistoryTable();
+            renderChart();
+
+            window.addEventListener('resize', renderChart);
+        });
+    </script>
+</body>
+</html>
